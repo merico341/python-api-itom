@@ -37,6 +37,9 @@ class UserService():
     def update_user(self, user: User):
         old = self.select_user(user.id)
 
+        if not old:
+            return
+
         with self.repository.engine.begin() as conn:
             # UPDATE * FROM USER WHERE USER.ID = id 
             query = update(User).where(User.id == user.id).values(
