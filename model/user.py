@@ -1,8 +1,11 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, List
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from model.base import Base
+
+if TYPE_CHECKING:
+    from model.device import Device
 
 class User(Base):
     __tablename__ = "user"
@@ -12,6 +15,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(30), nullable=False) #VARCHAR NOT NULL
     departament: Mapped[Optional[str]] = mapped_column(String(30)) #VARCHAR NULL
 
+    devices: Mapped[List["Device"]] = relationship(back_populates="user", cascade="all, delete-orphan") #FK
+
     def __repr__(self):
-        # O '!r' chama o repr() da variável, colocando aspas nas strings automaticamente
         return f"User(id={self.id}, name={self.name!r}, email={self.email!r}, departament={self.departament!r})"
