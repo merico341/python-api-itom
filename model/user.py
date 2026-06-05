@@ -15,7 +15,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(30), nullable=False) #VARCHAR NOT NULL
     departament: Mapped[Optional[str]] = mapped_column(String(30)) #VARCHAR NULL
 
-    devices: Mapped[List["Device"]] = relationship(back_populates="user", cascade="all, delete-orphan") #FK
+    devices: Mapped[List["Device"]] = relationship(back_populates="user")
 
     def __repr__(self):
         return f"User(id={self.id}, name={self.name!r}, email={self.email!r}, departament={self.departament!r})"
