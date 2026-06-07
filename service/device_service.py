@@ -3,6 +3,7 @@ from sqlalchemy import delete, insert, select, update
 from model.device import Device
 from repository.repository import Repository
 from service.log_service import LogService, Log
+from util.log_enum_util import LogOperation, LogStatus
 
 class DeviceService():
 
@@ -11,7 +12,7 @@ class DeviceService():
         self.log_service = LogService()
 
 
-    def create_device(self, device: Device, user_id_executante):
+    def create_device(self, device: Device):
         with self.repository.engine.begin() as conn:
             # INSERT INTO device (name, type, ip, user_id) VALUES (?, ?, ?, ?) RETURNING device.id
             query = insert(Device).values(
@@ -25,10 +26,10 @@ class DeviceService():
             device.id = result.scalar()
 
         self.log_service.create_log(Log(
-            operation="CREATE_DEVICE",
-            status="SUCCESS",
+            operation=LogOperation.CREATE,
+            status=LogStatus.SUCCESS,
             description=f"Dispositivo '{device.name}' (ID: {device.id}) cadastrado com sucesso.",
-            user_id=user_id_executante
+            device_id=device.id
         ))
         return device
     
@@ -72,10 +73,10 @@ class DeviceService():
             conn.execute(query)
         
         self.log_service.create_log(Log(
-            operation="UPDATE_DEVICE",
-            status="SUCCESS",
+            operation=LogOperation.UPDATE,
+            status=LogStatus.SUCCESS,
             description=f"Dispositivo ID {device.id} atualizado.",
-            user_id=user_id_executante
+            device_id=device.id
         ))
         return self.select_device(device.id)
     
@@ -90,8 +91,8 @@ class DeviceService():
             conn.execute(query)
         
         self.log_service.create_log(Log(
-            operation="DELETE_DEVICE",
-            status="SUCCESS",
+            operation=LogOperation.DELETE,
+            status=LogStatus.SUCCESS,
             description=f"Dispositivo '{old.name}' (ID: {id}) foi removido permanentemente.",
-            user_id=user_id_executante
+            device_id=old.id
         ))

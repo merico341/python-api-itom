@@ -3,6 +3,8 @@ from sqlalchemy import delete, insert, select, update
 from model.connection import Connection 
 from repository.repository import Repository
 from service.log_service import LogService, Log
+from util.log_enum_util import LogOperation, LogStatus
+
 
 class ConnectionService():
 
@@ -26,8 +28,8 @@ class ConnectionService():
             connection.id = result.scalar()
             
         self.log_service.create_log(Log(
-            operation="CREATE_CONNECTION",
-            status="SUCCESS",
+            operation=LogOperation.CREATE,
+            status=LogStatus.SUCCESS,
             description=f"Conexão de rede ID {connection.id} criada entre Dispositivo {connection.source_id} e {connection.destination_id}.",
             user_id=user_id_executante
         ))
@@ -84,8 +86,8 @@ class ConnectionService():
             conn.execute(query)
             
         self.log_service.create_log(Log(
-            operation="UPDATE_CONNECTION",
-            status="SUCCESS",
+            operation=LogOperation.UPDATE,
+            status=LogStatus.SUCCESS,
             description=f"Conexão de rede ID {connection.id} modificada.",
             user_id=user_id_executante
         ))
@@ -102,8 +104,8 @@ class ConnectionService():
             conn.execute(query)
 
         self.log_service.create_log(Log(
-            operation="DELETE_CONNECTION",
-            status="SUCCESS",
+            operation=LogOperation.DELETE,
+            status=LogStatus.SUCCESS,
             description=f"Conexão de rede ID {id} entre os dispositivos {old.source_id} e {old.destination_id} foi removida.",
             user_id=user_id_executante
         ))

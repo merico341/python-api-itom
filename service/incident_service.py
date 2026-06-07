@@ -3,6 +3,7 @@ from sqlalchemy import delete, insert, select, update, func
 from model.incident import Incident
 from service.log_service import LogService, Log
 from repository.repository import Repository
+from util.log_enum_util import LogOperation, LogStatus
 
 class IncidentService():
 
@@ -37,8 +38,8 @@ class IncidentService():
             
         
         self.log_service.create_log(Log(
-            operation="CREATE_INCIDENT",
-            status="SUCCESS",
+            operation=LogOperation.CREATE,
+            status=LogStatus.SUCCESS,
             description=f"Incidente {incident.number} criado com sucesso.",
             user_id=incident.caller_id
         ))
@@ -89,8 +90,8 @@ class IncidentService():
             conn.execute(query)
 
         self.log_service.create_log(Log(
-            operation="UPDATE_INCIDENT",
-            status="SUCCESS",
+            operation=LogOperation.UPDATE,
+            status=LogStatus.SUCCESS,
             description=f"Incidente {old.number} modificado.",
             user_id=user_id_executante
         ))
@@ -108,8 +109,8 @@ class IncidentService():
             conn.execute(query)
         
         self.log_service.create_log(Log(
-            operation="DELETE_INCIDENT",
-            status="SUCCESS",
+            operation=LogOperation.DELETE,
+            status=LogStatus.SUCCESS,
             description=f"Incidente número {old.number} foi excluído permanentemente.",
             user_id=user_id_executante
         ))
