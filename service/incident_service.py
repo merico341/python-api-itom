@@ -1,19 +1,23 @@
 from sqlalchemy import delete, insert, select, update, func
+
 from model.incident import Incident
+from service.log_service import LogService, Log
 from repository.repository import Repository
 
 class IncidentService():
 
     def __init__(self):
         self.repository = Repository()
+        self.log_service = LogService()
     
     def create_incident(self, incident: Incident):
         with self.repository.engine.begin() as conn:
+            # SELECT max(incident.id) AS max_1 FROM incident
             max_id_query = select(func.max(Incident.id))
             max_id = conn.execute(max_id_query).scalar() or 0
             next_number = f"INC{(max_id + 1):05d}"
             
-            # INSERT INTO INCIDENT (number, title, description, state, priority, caller_id, device_id) VALUES (incident.number, incident.title, incident.description, incident.state, incident.priority, incident.caller_id, incident.device_id)
+            # INSERT INTO incident (number, title, description, state, priority, caller_id, device_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, number, created_at, updated_at
             query = insert(Incident).values(
                 number = next_number,
                 title = incident.title,
@@ -31,33 +35,49 @@ class IncidentService():
             incident.created_at = result[2]
             incident.updated_at = result[3]
             
-            return incident
+        
+        self.log_service.create_log(Log(
+            operation="CREATE_INCIDENT",
+            status="SUCCESS",
+            description=f"Incidente {incident.number} criado com sucesso.",
+            user_id=incident.caller_id
+        ))
+
+        return incident
     
     def list_incident(self):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM INCIDENT 
+            # SELECT incident.id, incident.number, incident.title, incident.state, incident.priority, incident.caller_id, incident.created_at, incident.updated_at, incident.description, incident.device_id FROM incident
             query = select(Incident)
             result = conn.execute(query)
 
             return [Incident(**row) for row in result.mappings()]
     
+    def list_incident_by_caller(self, caller_id: int):
+        with self.repository.engine.connect() as conn:
+            # SELECT incident.id, incident.number, incident.title, incident.state, incident.priority, incident.caller_id, incident.created_at, incident.updated_at, incident.description, incident.device_id FROM incident WHERE incident.caller_id = ?
+            query = select(Incident).where(Incident.caller_id == caller_id)
+            result = conn.execute(query)
+
+            return [Incident(**row) for row in result.mappings()]
+
     def select_incident(self, id: int):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM INCIDENT WHERE INCIDENT.id = id
+            # SELECT incident.id, incident.number, incident.title, incident.state, incident.priority, incident.caller_id, incident.created_at, incident.updated_at, incident.description, incident.device_id FROM incident WHERE incident.id = ?
             query = select(Incident).where(Incident.id == id)
             result = conn.execute(query)
             row = result.mappings().first()
 
             return Incident(**row) if row else None
     
-    def update_incident(self, incident: Incident):
+    def update_incident(self, incident: Incident, user_id_executante: int):
         old = self.select_incident(incident.id)
 
         if not old:
             return
             
         with self.repository.engine.begin() as conn:
-            # UPDATE incident SET title=incident.title, description=incident.description, state=incident.state, priority=incident.priority, caller_id=incident.caller_id, device_id=incident.device_id, updated_at=CURRENT_TIMESTAMP WHERE incident.id = incident.id
+            # UPDATE incident SET title=?, description=?, state=?, priority=?, caller_id=?, device_id=?, updated_at=CURRENT_TIMESTAMP WHERE incident.id = ?
             query = update(Incident).where(Incident.id == incident.id).values(
                 title = incident.title or old.title,
                 description = incident.description or old.description,
@@ -67,11 +87,29 @@ class IncidentService():
                 device_id = incident.device_id or old.device_id
             )
             conn.execute(query)
+
+        self.log_service.create_log(Log(
+            operation="UPDATE_INCIDENT",
+            status="SUCCESS",
+            description=f"Incidente {old.number} modificado.",
+            user_id=user_id_executante
+        ))
             
         return self.select_incident(incident.id)
     
-    def delete_incident(self, id: int):
+    def delete_incident(self, id: int, user_id_executante):
+        old = self.select_incident(id)
+        if not old:
+            raise ValueError(f"Incidente com ID {id} não encontrado.")
+        
         with self.repository.engine.begin() as conn:
-            # DELETE * FROM INCIDENT WHERE INCIDENT.ID = id
+            # DELETE FROM incident WHERE incident.id = ?
             query = delete(Incident).where(Incident.id == id)
             conn.execute(query)
+        
+        self.log_service.create_log(Log(
+            operation="DELETE_INCIDENT",
+            status="SUCCESS",
+            description=f"Incidente número {old.number} foi excluído permanentemente.",
+            user_id=user_id_executante
+        ))

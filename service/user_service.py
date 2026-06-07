@@ -10,11 +10,11 @@ class UserService():
 
     def create_user(self, user: User):
         with self.repository.engine.begin() as conn:
-            # INSERT INTO USER (nome, email, departament) VALUES (user.id, user.nome, user.email)
+            # INSERT INTO user (name, email, role, password) VALUES (?, ?, ?, ?) RETURNING user.id
             query = insert(User).values(
                 name = user.name,
                 email = user.email,
-                role = user.role,
+                role = user.role or "USER",
                 password = user.password
             ).returning(User.id)
 
@@ -24,15 +24,31 @@ class UserService():
 
     def list_users(self):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM USER
+            # SELECT user.id, user.name, user.email, user.role, user.password FROM user
             query = select(User)
+            result = conn.execute(query)
+            return [User(**row) for row in result.mappings()]
+    
+    def list_users_by_name(self, name):
+        with self.repository.engine.connect() as conn:
+            # SELECT user.id, user.name FROM user WHERE user.name LIKE ?
+            query = select(User.id, User.name).where(User.name.like(f"%{name}%"))
             result = conn.execute(query)
             return [User(**row) for row in result.mappings()]
 
     def select_user(self, id):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM USER WHERE (user.id = id) 
+            # SELECT user.id, user.name, user.email, user.role, user.password FROM user WHERE user.id = ?
             query = select(User).where(User.id == id)
+            result = conn.execute(query)
+            row = result.mappings().first()
+
+            return User(**row) if row else None
+
+    def select_user_by_email(self, email):
+        with self.repository.engine.connect() as conn:
+            # SELECT user.id, user.name, user.email, user.role, user.password FROM user WHERE user.email = ?
+            query = select(User).where(User.email == email)
             result = conn.execute(query)
             row = result.mappings().first()
 
@@ -45,7 +61,7 @@ class UserService():
             raise ValueError(f"Usuário com ID {user.id} não encontrado.")
 
         with self.repository.engine.begin() as conn:
-            # UPDATE USER SET (name=user.name, email=user.email, role=user.role, password=user.password) FROM USER WHERE (user.id = id) 
+            # UPDATE user SET name=?, email=?, role=?, password=? WHERE user.id = ?
             query = update(User).where(User.id == user.id).values(
                 name = user.name or old.name,
                 email = user.email or old.email,
@@ -56,6 +72,6 @@ class UserService():
 
     def delete_user(self, id):
         with self.repository.engine.begin() as conn:
-            # DELETE * FROM USER WHERE (user.id = id)
+            # DELETE FROM user WHERE user.id = ?
             query = delete(User).where(User.id == id)
             conn.execute(query)

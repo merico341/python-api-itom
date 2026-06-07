@@ -1,20 +1,21 @@
 from sqlalchemy import delete, insert, select, update
 
-from model.device import Device
 from model.connection import Connection 
 from repository.repository import Repository
+from service.log_service import LogService, Log
 
 class ConnectionService():
 
     def __init__(self):
         self.repository = Repository()
+        self.log_service = LogService()
     
-    def create_connection(self, connection: Connection):
+    def create_connection(self, connection: Connection, user_id_executante):
         if connection.source_id == connection.destination_id:
             raise ValueError("O dispositivo de origem não pode ser igual ao de destino.")
 
         with self.repository.engine.begin() as conn:
-            # INSERT INTO CONNECTION (type, source_id, destination_id) VALUES (Connection.type, Connection.source_id, Connection.destination_id)
+            # INSERT INTO connection (type, source_id, destination_id) VALUES (?, ?, ?) RETURNING connection.id
             query = insert(Connection).values(
                 type = connection.type,
                 source_id = connection.source_id,
@@ -23,32 +24,58 @@ class ConnectionService():
             
             result = conn.execute(query)
             connection.id = result.scalar()
-            return connection
+            
+        self.log_service.create_log(Log(
+            operation="CREATE_CONNECTION",
+            status="SUCCESS",
+            description=f"Conexão de rede ID {connection.id} criada entre Dispositivo {connection.source_id} e {connection.destination_id}.",
+            user_id=user_id_executante
+        ))
+        return connection
     
     def list_connection(self):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM CONNECTION
+            # SELECT connection.id, connection.type, connection.source_id, connection.destination_id FROM connection    
             query = select(Connection)
+            result = conn.execute(query)
+            return [Connection(**row) for row in result.mappings()]
+    
+    def list_connection_by_source(self, device_id):
+        with self.repository.engine.connect() as conn:
+            # SELECT connection.id, connection.type, connection.source_id, connection.destination_id FROM connection WHERE connection.source_id = ?
+            query = select(Connection).where(Connection.source_id == device_id)
+            result = conn.execute(query)
+            return [Connection(**row) for row in result.mappings()]
+    
+    def list_connection_by_destination(self, device_id):
+        with self.repository.engine.connect() as conn:
+            # SELECT connection.id, connection.type, connection.source_id, connection.destination_id FROM connection WHERE connection.destination_id = ?
+            query = select(Connection).where(Connection.destination_id == device_id)
             result = conn.execute(query)
             return [Connection(**row) for row in result.mappings()]
     
     def select_connection(self, id: int):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM CONNECTION WHERE ID = connection.id
+            # SELECT connection.id, connection.type, connection.source_id, connection.destination_id FROM connection WHERE connection.id = ?
             query = select(Connection).where(Connection.id == id)
             result = conn.execute(query)
             row = result.mappings().first()
 
             return Connection(**row) if row else None
     
-    def update_connection(self, connection: Connection):
+    def update_connection(self, connection: Connection, user_id_executante):
         old = self.select_connection(connection.id)
 
         if not old:
-            return
+            raise ValueError(f"Conexão com ID {connection.id} não encontrada.")
+            
+        novo_source = connection.source_id or old.source_id
+        novo_destination = connection.destination_id or old.destination_id
+        if novo_source == novo_destination:
+            raise ValueError("A atualização geraria uma conexão do dispositivo com ele mesmo.")
         
         with self.repository.engine.begin()as conn:
-            # UPDATE * FROM CONNECTION WHERE CONNECTION.ID = id VALUES (Connection.type, Connection.source_id, Connection.destination_id)
+            # UPDATE connection SET type=?, source_id=?, destination_id=? WHERE connection.id = ?
             query = update(Connection).where(Connection.id == connection.id).values(
                 type = connection.type or old.type,
                 source_id = connection.source_id or old.source_id,
@@ -56,11 +83,27 @@ class ConnectionService():
             )
             conn.execute(query)
             
-            return self.select_connection(connection.id)
+        self.log_service.create_log(Log(
+            operation="UPDATE_CONNECTION",
+            status="SUCCESS",
+            description=f"Conexão de rede ID {connection.id} modificada.",
+            user_id=user_id_executante
+        ))
+        return self.select_connection(connection.id)
     
-    def delete_connection(self, id: int):
+    def delete_connection(self, id: int, user_id_executante: int):
+        old = self.select_connection(id)
+        if not old:
+            raise ValueError(f"Conexão com ID {id} não encontrada.")
+
         with self.repository.engine.begin() as conn:
-            # DELETE * FROM CONNECTION WHERE CONNECTION.ID = id
+            # DELETE FROM connection WHERE connection.id = ?
             query = delete(Connection).where(Connection.id == id)
             conn.execute(query)
 
+        self.log_service.create_log(Log(
+            operation="DELETE_CONNECTION",
+            status="SUCCESS",
+            description=f"Conexão de rede ID {id} entre os dispositivos {old.source_id} e {old.destination_id} foi removida.",
+            user_id=user_id_executante
+        ))
