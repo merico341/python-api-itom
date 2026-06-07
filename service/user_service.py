@@ -14,9 +14,13 @@ class UserService():
             query = insert(User).values(
                 name = user.name,
                 email = user.email,
-                departament = user.departament
-            )
-            conn.execute(query)
+                role = user.role,
+                password = user.password
+            ).returning(User.id)
+
+            result = conn.execute(query)
+            user.id = result.scalar()
+            return user
 
     def list_users(self):
         with self.repository.engine.connect() as conn:
@@ -27,7 +31,7 @@ class UserService():
 
     def select_user(self, id):
         with self.repository.engine.connect() as conn:
-            # SELECT * FROM USER WHERE USER.ID = id 
+            # SELECT * FROM USER WHERE (user.id = id) 
             query = select(User).where(User.id == id)
             result = conn.execute(query)
             row = result.mappings().first()
@@ -38,19 +42,20 @@ class UserService():
         old = self.select_user(user.id)
 
         if not old:
-            return
+            raise ValueError(f"Usuário com ID {user.id} não encontrado.")
 
         with self.repository.engine.begin() as conn:
-            # UPDATE * FROM USER WHERE USER.ID = id 
+            # UPDATE USER SET (name=user.name, email=user.email, role=user.role, password=user.password) FROM USER WHERE (user.id = id) 
             query = update(User).where(User.id == user.id).values(
                 name = user.name or old.name,
                 email = user.email or old.email,
-                departament = user.departament or old.departament
+                role = user.role or old.role,
+                password = user.password or old.password
             )
             conn.execute(query)
 
     def delete_user(self, id):
         with self.repository.engine.begin() as conn:
-            # DELETE * FROM USER WHERE USER.ID = id
+            # DELETE * FROM USER WHERE (user.id = id)
             query = delete(User).where(User.id == id)
             conn.execute(query)
