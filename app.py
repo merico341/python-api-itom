@@ -17,6 +17,7 @@ from controller.user_controller import user_ns
 from controller.device_controller import device_ns
 from controller.connection_controller import connection_ns
 from controller.incident_controller import incident_ns
+from controller.log_controller import log_ns
 
 def create_app():
     app = Flask(__name__)
@@ -54,6 +55,7 @@ def create_app():
     api.add_namespace(device_ns, path='/api/device')
     api.add_namespace(connection_ns, path='/api/connection')
     api.add_namespace(incident_ns, path='/api/incident')
+    api.add_namespace(log_ns, path='/api/logs')
 
     return app
 

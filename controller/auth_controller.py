@@ -1,12 +1,14 @@
 from flask import request
+from datetime import datetime
 from flask_restx import Namespace, Resource, fields
-from flask_login import login_user, logout_user, login_required
+from flask_login import login_user, logout_user, current_user, login_required
 from service.user_service import UserService
+from service.log_service import LogService, Log
+from util.log_enum_util import LogOperation, LogStatus
 
 auth_ns = Namespace('auth', description='Autenticação e Sessão')
 user_service = UserService()
 
-# Modelo de payload para o Swagger documentar os campos
 login_model = auth_ns.model('LoginInput', {
     'email': fields.String(required=True, description='E-mail de acesso'),
     'password': fields.String(required=True, description='Senha do usuário')
@@ -20,15 +22,29 @@ class Login(Resource):
         """Efetua o login e gera o cookie de sessão"""
         dados = auth_ns.payload
         
-        # 1. Busca o usuário
         usuario = user_service.select_user_by_email(dados['email'])
         
-        # 2. Valida as credenciais (Obs: Em produção, use check_password_hash)
         if not usuario or usuario.password != dados['password']:
+            LogService.create_log(Log(
+                operation=LogOperation.LOGIN,
+                status=LogStatus.WARNING,
+                description='senha ou login incorretos',
+                device_id=None,
+                user_id=0,
+                date_hour=datetime.now()
+            ))
             auth_ns.abort(401, "E-mail ou senha incorretos.")
             
-        # 3. Dispara o mecanismo do Flask-Login para salvar a sessão no navegador
         login_user(usuario)
+
+        LogService.create_log(Log(
+            operation=LogOperation.LOGIN,
+            status=LogStatus.SUCCESS,
+            description='usuario_logado_com_sucesso',
+            device_id=None,
+            user_id=current_user.id,
+            date_hour=datetime.now()
+        ))
         
         return {
             "message": f"Login efetuado com sucesso! Bem-vindo(a), {usuario.name}.",
@@ -42,5 +58,13 @@ class Logout(Resource):
     
     def post(self):
         """Encerra a sessão ativa (limpa o cookie)"""
-        logout_user()  # Destrói o cookie de sessão do lado do cliente
+        logout_user()
+        LogService.create_log(Log(
+            operation=LogOperation.LOGOUT,
+            status=LogStatus.SUCCESS,
+            description='usuario_deslogado_com_sucesso',
+            device_id=None,
+            user_id=current_user.id,
+            date_hour=datetime.now()
+        ))
         return {"message": "Sessão encerrada com sucesso."}, 200
