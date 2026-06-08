@@ -29,7 +29,7 @@ def create_app():
         r"/api/*": {
             "origins": [
                 "http://localhost:3000",
-                re.compile(r"https://v0-resolveit-front-end.onrender.com/")
+                re.compile(r"^https://.*\.vercel\.app$")
             ]
         }
     }, supports_credentials=True)
