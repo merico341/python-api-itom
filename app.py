@@ -22,13 +22,16 @@ from controller.log_controller import log_ns
 def create_app():
     app = Flask(__name__)
 
-    CORS(app, resources={r"/api/*": {"origins": "https://projetoresolveit.vercel.app"}}) 
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
     app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave_secreta_super_protegida_da_infra_123!")
     app.config['RESTX_MASK_SWAGGER'] = False  
     app.config['REMEMBER_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  
     app.config['SESSION_COOKIE_SECURE'] = False 
+
+    app.config['SESSION_COOKIE_SAMESITE'] = 'None'  
+    app.config['SESSION_COOKIE_SECURE'] = True
 
     print("[SISTEMA] Conectando ao PostgreSQL e validando tabelas...")
     print("[SISTEMA] Banco de dados inicializado com sucesso!")
@@ -55,7 +58,7 @@ def create_app():
     api.add_namespace(device_ns, path='/api/device')
     api.add_namespace(connection_ns, path='/api/connection')
     api.add_namespace(incident_ns, path='/api/incident')
-    api.add_namespace(log_ns, path='/api/logs')
+    api.add_namespace(log_ns, path='/api/log')
 
     return app
 
