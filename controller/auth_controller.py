@@ -25,29 +25,10 @@ class Login(Resource):
         usuario = user_service.select_user_by_email(dados['email'])
         
         if not usuario or usuario.password != dados['password']:
-            LogService.create_log(Log(
-                operation=LogOperation.LOGIN,
-                status=LogStatus.WARNING,
-                description='senha ou login incorretos',
-                device_id=None,
-                user_id=0,
-                date_hour=datetime.now()
-            ))
             auth_ns.abort(401, "E-mail ou senha incorretos.")
             
         login_user(usuario)
 
-        log = Log(
-            operation=LogOperation.LOGIN,
-            status=LogStatus.SUCCESS,
-            description='usuario_logado_com_sucesso',
-            device_id=None,
-            user_id=usuario.id,
-            date_hour=datetime.now()
-        )
-
-        LogService.create_log(log)
-        
         return {
             "message": f"Login efetuado com sucesso! Bem-vindo(a), {usuario.name}.",
             "user_id": usuario.id,
