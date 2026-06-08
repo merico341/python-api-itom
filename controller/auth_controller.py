@@ -37,14 +37,16 @@ class Login(Resource):
             
         login_user(usuario)
 
-        LogService.create_log(Log(
+        log = Log(
             operation=LogOperation.LOGIN,
             status=LogStatus.SUCCESS,
             description='usuario_logado_com_sucesso',
             device_id=None,
             user_id=usuario.id,
             date_hour=datetime.now()
-        ))
+        )
+
+        LogService.create_log(log)
         
         return {
             "message": f"Login efetuado com sucesso! Bem-vindo(a), {usuario.name}.",

@@ -17,7 +17,7 @@ class Repository():
         if cls._instance is None:
             cls._instance = super(Repository, cls).__new__(cls)
             
-            DATABASE_URL = "postgresql://admin:mpJml3248LlNQ1WCTAhFjSYPID04xA2W@dpg-d8jdc9kvikkc73bgood0-a.oregon-postgres.render.com/banco_xl8w"
+            DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_passwd}@{db_adrss}:{db_port}/{db_name}"
             
             cls._instance.engine = create_engine(
                 DATABASE_URL,
