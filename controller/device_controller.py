@@ -3,10 +3,12 @@ from service.device_service import DeviceService
 from model.device import Device
 from util.auth_role_enum_util import roles_required, UserRole
 from flask_login import current_user
+from requests import request
 
-device_ns = Namespace("device", description="Operações CRUD de Dispositivos de Rede")
+device_ns = Namespace("device", description="Operações CRUD de Dispositivos de Rede e Integrações")
 device_service = DeviceService()
 
+# Modelo padrão para gerenciamento individual de ativos
 device_model = device_ns.model('DeviceModel', {
     'id': fields.Integer(readonly=True, description='Identificador único do ativo'),
     'name': fields.String(required=True, description='Nome do dispositivo (Ex: Switch-Core-01)'),
@@ -15,6 +17,45 @@ device_model = device_ns.model('DeviceModel', {
     'user_id': fields.Integer(description='ID do usuário responsável pelo ativo')
 })
 
+# Modelo de payload para o Swagger saber o que a rota espera receber por JSON
+sync_payload_model = device_ns.model('SyncPayload', {
+    'className': fields.String(required=False, description='Nome da classe CMDB do ServiceNow (Ex: cmdb_ci_server, cmdb_ci_linux_server)', default='cmdb_ci_hardware')
+})
+
+
+@device_ns.route('/sync/servicenow')
+class ServiceNowSync(Resource):
+    
+    @device_ns.doc("sync_servicenow_devices")
+    @device_ns.expect(sync_payload_model, validate=True)
+    @device_ns.response(200, "Sincronização realizada com sucesso")
+    @device_ns.response(401, "Sessão inválida ou não autenticada no sistema")
+    @device_ns.response(502, "Falha de Autenticação com o ServiceNow (Credenciais Inválidas / Instância Hibernando)")
+    @roles_required(UserRole.TI, UserRole.ADM)
+    def post(self):
+        """[INTEGRATION] Sincroniza dinamicamente ativos do ServiceNow enviando a classe por JSON"""
+        try:
+            user_id_executante = current_user.id
+            
+            # 🛠️ CORREÇÃO: Captura o payload JSON utilizando a propriedade correta do Namespace
+            dados = device_ns.payload if device_ns.payload else {}
+            class_name = dados.get('className')  # Agora recupera sem quebrar a execução
+            
+            # Executa a camada de serviço
+            resultado = device_service.sync_servicenow_devices(user_id_executante, class_name)
+            
+            return resultado, 200
+
+        except Exception as e:
+            # 🔍 Captura se o erro que subiu do service foi o 401 disparado pela API externa do ServiceNow
+            erro_str = str(e)
+            if "401" in erro_str:
+                print(f"\n[CRÍTICO] O ServiceNow rejeitou a conexão: {erro_str}")
+                print("[DICA] Verifique se as variáveis SERVICENOW_USER e SERVICENOW_PASSWORD estão corretas")
+                print("[DICA] Se for uma PDI (instância de desenvolvimento), verifique se ela não entrou em hibernação.\n")
+                device_ns.abort(502, f"O ServiceNow retornou 401 Unauthorized: Usuário/Senha inválidos ou Instância fora do ar.")
+            
+            device_ns.abort(500, f"Falha na execução do sincronismo dinâmico: {erro_str}")
 
 @device_ns.route('/')
 class DeviceList(Resource):
@@ -42,6 +83,7 @@ class DeviceList(Resource):
         )
         
         return device_service.create_device(novo_device), 201
+
 
 
 @device_ns.route('/<int:id>')

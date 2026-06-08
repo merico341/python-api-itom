@@ -1,15 +1,21 @@
 from sqlalchemy import delete, insert, select, update
 
+import os
 from model.device import Device
 from repository.repository import Repository
 from service.log_service import LogService, Log
 from util.log_enum_util import LogOperation, LogStatus
+import requests
 
 class DeviceService():
 
     def __init__(self):
         self.repository = Repository()
         self.log_service = LogService()
+
+        self.sn_instance = os.getenv("SERVICENOW_INSTANCE_URL", "https://dev328829.service-now.com/")
+        self.sn_user = os.getenv("SERVICENOW_USER", "admin")
+        self.sn_password = os.getenv("SERVICENOW_PASSWORD", "/lg0@wCIZo9J")
 
 
     def create_device(self, device: Device):
@@ -55,6 +61,87 @@ class DeviceService():
             row = result.mappings().first()
 
             return Device(**row) if row else None
+
+    def sync_servicenow_devices(self, user_id_executante, class_name=None):
+        """
+        Consome a API de Instância do CMDB do ServiceNow de forma dinâmica
+        com base no className enviado por JSON e executa apenas a inserção (INSERT)
+        dos ativos usando a função create_device local.
+        """
+        import requests
+
+        # Define um valor padrão caso o front-end não envie um className específico
+        if not class_name:
+            class_name = "cmdb_ci_hardware"
+        
+        # Montagem dinâmica da URL com a classe solicitada pelo JSON
+        url = f"{self.sn_instance}/api/now/cmdb/instance/{class_name}"
+        
+        params = {
+            "sysparm_query": "ip_addressISNOTEMPTY",
+            "sysparm_fields": "name,sys_class_name,ip_address",
+            "sysparm_limit": "50"
+        }
+
+        try:
+            # 1. Consome a API do ServiceNow
+            response = requests.get(
+                url, 
+                auth=(self.sn_user, self.sn_password), 
+                params=params,
+                headers={"Accept": "application/json"},
+                timeout=15
+            )
+
+            if response.status_code != 200:
+                # Captura o texto exato do erro que o ServiceNow devolveu
+                detalhe_erro = response.text
+                print(f"[ERRO SERVICENOW] Resposta do Servidor: {detalhe_erro}")
+                raise Exception(f"Erro na CMDB API do ServiceNow: Status {response.status_code} - {detalhe_erro}")
+
+            records = response.json().get("result", [])
+            inserted_count = 0
+
+            # 2. Varre os registros trazidos e executa estritamente o INSERT
+            for rec in records:
+                name = rec.get("name", "Dispositivo Sem Nome")
+                ip = rec.get("ip_address")
+                device_type = rec.get("sys_class_name", class_name)
+
+                # Instancia o modelo e chama o seu método local que lida com o INSERT e Logs
+                novo_device = Device(
+                    name=name,
+                    type=device_type,
+                    ip=ip,
+                    user_id=user_id_executante
+                )
+                
+                self.create_device(novo_device)
+                inserted_count += 1
+
+            # 3. Registro de Log Geral de SUCESSO da Operação de Carga/Sincronismo
+            self.log_service.create_log(Log(
+                operation=LogOperation.CONNECT,
+                status=LogStatus.SUCCESS,
+                description=f"Carga CMDB da classe '{class_name}' concluída. Total de inserções: {inserted_count}.",
+                user_id=user_id_executante
+            ))
+
+            return {
+                "message": f"Sincronização da classe {class_name} realizada com sucesso", 
+                "inserted": inserted_count,
+                "updated": 0
+            }
+
+        except Exception as e:
+            # 4. Registro de Log Geral de FALHA
+            self.log_service.create_log(Log(
+                operation=LogOperation.CONNECT,
+                status=LogStatus.FAILED,
+                description=f"Falha ao processar carga da instância CMDB da classe '{class_name}': {str(e)}",
+                user_id=user_id_executante
+            ))
+            raise e
 
     def update_device(self, device: Device, user_id_executante):
         old = self.select_device(device.id)
