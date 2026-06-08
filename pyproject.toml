@@ -1,25 +1,20 @@
-[project]
+[tool.poetry]
 name = "python-api-itom"
 version = "0.1.0"
-description = "API de Gestão de Ativos e Incidentes de TI integrada ao ServiceNow"
-authors = [
-    {name = "Americo", email = "lonetfricoto@gmail.com"}
-]
-dependencies = [
-    "python>=3.11",
-    "flask>=3.0.0",
-    "flask-restx>=1.3.0",
-    "sqlalchemy>=2.0.0",
-    "flask-login>=0.6.3",
-    "requests>=2.31.0",
-    "python-dotenv>=1.0.1",
-    "psycopg2-binary>=2.9.9",  # Driver para conectar no banco PostgreSQL de produção
-    "gunicorn>=23.0.0"         # OBRIGATÓRIO para o Render funcionar
-]
+description = "API de Gestão de Ativos e Incidentes de TI"
+authors = ["Seu Nome <seu.email@exemplo.com>"]
+readme = "README.md"
 
-[tool.poetry]
-# Configuração para versões antigas/mistas do Poetry se necessário
-packages = [{include = "app.py"}]
+[tool.poetry.dependencies]
+python = "^3.11"
+flask = "^3.0.0"
+flask-restx = "^1.3.0"
+sqlalchemy = "^2.0.0"
+flask-login = "^0.6.3"
+requests = "^2.31.0"
+python-dotenv = "^1.0.1"
+psycopg2-binary = "^2.9.9"
+gunicorn = "^23.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]
