@@ -3,5 +3,7 @@ flask
 flask_login
 Flask-cors
 flask_restx
-dotenv
+python-dotenv
 gunicorn
+psycopg2
+requests
