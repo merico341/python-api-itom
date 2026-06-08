@@ -22,7 +22,7 @@ from controller.log_controller import log_ns
 def create_app():
     app = Flask(__name__)
 
-    CORS(app, supports_credentials=True) 
+    CORS(app, resources={r"/api/*": {"origins": "https://projetoresolveit.vercel.app"}}) 
 
     app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave_secreta_super_protegida_da_infra_123!")
     app.config['RESTX_MASK_SWAGGER'] = False  
