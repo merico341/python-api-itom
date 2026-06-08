@@ -27,7 +27,7 @@ def roles_required(*roles: UserRole):
                     status=LogStatus.FAILED,
                     description=f"Tentativa de acesso anônimo bloqueada na rota: {rota_acessada}",
                     device_id=None,
-                    user_id=0,
+                    user_id=3,
                     date_hour=datetime.now()
                 ))
                 abort(401, description="Não autenticado. Por favor, faça login para acessar este recurso.")
