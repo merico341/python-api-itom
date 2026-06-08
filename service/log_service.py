@@ -11,11 +11,6 @@ class LogService():
         self.repository = Repository()
     
     def create_log(self, log: Log):
-        has_device = bool(log.device_id)
-        has_user = bool(log.user_id)
-        
-        if has_device == has_user:
-            raise ValueError("O log deve conter obrigatoriamente ou o id do dispositivo ou o id do usuário (apenas 1).")
         
         if log.date_hour is None:
             log.date_hour = datetime.now()
