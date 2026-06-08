@@ -1,0 +1,7 @@
+SQLalchemy
+flask
+flask_login
+Flask-cors
+flask_restx
+dotenv
+gunicorn
