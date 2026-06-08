@@ -25,24 +25,20 @@ def create_app():
 
     # 🛠️ CORREÇÃO 1: CORS dinâmico. Aceita localhost E qualquer subdomínio da Vercel.
     # Isso resolve a regra de segurança que proíbe o uso de "*" com credenciais ativas.
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": [
-                "http://localhost:3000",
-                re.compile(r"^https://.*\.vercel\.app$")
-            ]
-        }
-    }, supports_credentials=True)
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=[
+            "https://seu-projeto.vercel.app"
+        ]
+    )
 
-    app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave_secreta_super_protegida_da_infra_123!")
-    app.config['RESTX_MASK_SWAGGER'] = False  
-    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
-    
-    # 🛠️ CORREÇÃO 2: Configuração limpa e sem duplicidade para Cross-Domain Cookies
-    app.config['SESSION_COOKIE_SAMESITE'] = 'None'  
-    app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
-    app.config['REMEMBER_COOKIE_SECURE'] = True
+    app.config.update(
+        SECRET_KEY=os.environ["SECRET_KEY"],
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="None"
+    )
 
     # 🛠️ CORREÇÃO 3: Evita erros de redirecionamento 308 (com ou sem barra final)
     app.url_map.strict_slashes = False
