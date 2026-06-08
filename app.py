@@ -21,7 +21,7 @@ def create_app():
     CORS(app, resources={
         r"/api/*": {
             "origins": [
-                "https://v0-resolveit-front-end.onrender.com/",
+                "*",
                 re.compile(r"^https://.*\.vercel\.app$")
             ]
         }
