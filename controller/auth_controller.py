@@ -42,7 +42,7 @@ class Login(Resource):
             status=LogStatus.SUCCESS,
             description='usuario_logado_com_sucesso',
             device_id=None,
-            user_id=current_user.id,
+            user_id=usuario.id,
             date_hour=datetime.now()
         ))
         
@@ -55,16 +55,7 @@ class Login(Resource):
 
 @auth_ns.route('/logout')
 class Logout(Resource):
-    
     def post(self):
         """Encerra a sessão ativa (limpa o cookie)"""
         logout_user()
-        LogService.create_log(Log(
-            operation=LogOperation.LOGOUT,
-            status=LogStatus.SUCCESS,
-            description='usuario_deslogado_com_sucesso',
-            device_id=None,
-            user_id=current_user.id,
-            date_hour=datetime.now()
-        ))
         return {"message": "Sessão encerrada com sucesso."}, 200
