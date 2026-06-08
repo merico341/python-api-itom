@@ -1,9 +1,15 @@
 import os
-import re
+import re  # Importação necessária para a validação dinâmica da Vercel
 from flask import Flask
 from flask_restx import Api
+from flask_login import LoginManager
 from flask_cors import CORS  
-from flask_jwt_extended import JWTManager # 🔄 Trocado Flask-Login por JWT
+
+from model.user import User
+from model.device import Device
+from model.incident import Incident
+from model.connection import Connection
+from model.log import Log
 
 from service.user_service import UserService
 
@@ -17,25 +23,37 @@ from controller.log_controller import log_ns
 def create_app():
     app = Flask(__name__)
 
-    # Como o JWT usa Headers, o CORS simplificado com "*" volta a funcionar perfeitamente!
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": [
-                "*",
-                re.compile(r"^https://.*\.vercel\.app$")
-            ]
-        }
-    }, supports_credentials=True)
+    # 🛠️ CORREÇÃO 1: CORS dinâmico. Aceita localhost E qualquer subdomínio da Vercel.
+    # Isso resolve a regra de segurança que proíbe o uso de "*" com credenciais ativas.
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=[
+            "https://v0-resolveit-front-end.onrender.com/"
+        ]
+    )
 
-    app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave_secreta_super_protegida_da_infra_123!")
-    app.config['RESTX_MASK_SWAGGER'] = False  
+    app.config.update(
+        SECRET_KEY=os.environ["SECRET_KEY"],
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="None"
+    )
+
+    # 🛠️ CORREÇÃO 3: Evita erros de redirecionamento 308 (com ou sem barra final)
     app.url_map.strict_slashes = False
 
-    # 🛠️ CONFIGURAÇÃO DO JWT
-    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "outra_chave_mestra_para_os_tokens_456!")
-    jwt = JWTManager(app)
-
+    print("[SISTEMA] Conectando ao PostgreSQL e validando tabelas...")
     print("[SISTEMA] Banco de dados inicializado com sucesso!")
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+
+    user_service = UserService()
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return user_service.select_user(int(user_id))
 
     api = Api(
         app,

@@ -1,36 +1,44 @@
 from flask import request
+from datetime import datetime
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import create_access_token
-from service.user_service import UserService # Ou onde você valida a senha
+from flask_login import login_user, logout_user, current_user, login_required
+from service.user_service import UserService
+from service.log_service import LogService, Log
+from util.log_enum_util import LogOperation, LogStatus
 
-auth_ns = Namespace('auth', description='Operações de Autenticação')
+auth_ns = Namespace('auth', description='Autenticação e Sessão')
 user_service = UserService()
+
+login_model = auth_ns.model('LoginInput', {
+    'email': fields.String(required=True, description='E-mail de acesso'),
+    'password': fields.String(required=True, description='Senha do usuário')
+})
 
 @auth_ns.route('/login')
 class Login(Resource):
+    
+    @auth_ns.expect(login_model, validate=True)
     def post(self):
-        dados = request.get_json()
-        email = dados.get("email")
-        password = dados.get("password")
-
-        usuario = user_service.select_user_by_email(email)
+        """Efetua o login e gera o cookie de sessão"""
+        dados = auth_ns.payload
         
-        if not usuario or usuario.password != password:
+        usuario = user_service.select_user_by_email(dados['email'])
+        
+        if not usuario or usuario.password != dados['password']:
             auth_ns.abort(401, "E-mail ou senha incorretos.")
-                    
-        if not usuario:
-            return {"message": "E-mail ou senha incorretos"}, 401
-
-        # 🛠️ GERANDO O JWT TOKEN (Guardamos o ID do usuário como identidade)
-        access_token = create_access_token(identity=str(usuario.id))
+            
+        login_user(usuario)
 
         return {
-            "message": "Login realizado com sucesso",
-            "token": access_token,
-            "user": {
-                "id": usuario.id,
-                "name": usuario.name,
-                "email": usuario.email,
-                "role": usuario.role
-            }
+            "message": f"Login efetuado com sucesso! Bem-vindo(a), {usuario.name}.",
+            "user_id": usuario.id,
+            "role": usuario.role
         }, 200
+
+
+@auth_ns.route('/logout')
+class Logout(Resource):
+    def post(self):
+        """Encerra a sessão ativa (limpa o cookie)"""
+        logout_user()
+        return {"message": "Sessão encerrada com sucesso."}, 200
