@@ -1,4 +1,5 @@
 import os
+import re  # Importação necessária para a validação dinâmica da Vercel
 from flask import Flask
 from flask_restx import Api
 from flask_login import LoginManager
@@ -22,16 +23,29 @@ from controller.log_controller import log_ns
 def create_app():
     app = Flask(__name__)
 
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    # 🛠️ CORREÇÃO 1: CORS dinâmico. Aceita localhost E qualquer subdomínio da Vercel.
+    # Isso resolve a regra de segurança que proíbe o uso de "*" com credenciais ativas.
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:3000",
+                re.compile(r"^https://.*\.vercel\.app$")
+            ]
+        }
+    }, supports_credentials=True)
 
     app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave_secreta_super_protegida_da_infra_123!")
     app.config['RESTX_MASK_SWAGGER'] = False  
     app.config['REMEMBER_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  
-    app.config['SESSION_COOKIE_SECURE'] = False 
-
+    
+    # 🛠️ CORREÇÃO 2: Configuração limpa e sem duplicidade para Cross-Domain Cookies
     app.config['SESSION_COOKIE_SAMESITE'] = 'None'  
     app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
+    app.config['REMEMBER_COOKIE_SECURE'] = True
+
+    # 🛠️ CORREÇÃO 3: Evita erros de redirecionamento 308 (com ou sem barra final)
+    app.url_map.strict_slashes = False
 
     print("[SISTEMA] Conectando ao PostgreSQL e validando tabelas...")
     print("[SISTEMA] Banco de dados inicializado com sucesso!")
