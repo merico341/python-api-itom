@@ -3,11 +3,9 @@ from service.log_service import LogService
 from model.log import Log
 from util.auth_role_enum_util import roles_required, UserRole
 
-# 1. Definição do Namespace com identidade visual (Emoji)
 log_ns = Namespace("log", description="Trilha de Auditoria e Logs do Sistema")
 log_service = LogService()
 
-# 2. Modelo estruturado com base EXATA no seu LogService e no banco
 log_model = log_ns.model('LogModel', {
     'id': fields.Integer(readonly=True, description='Identificador único do log'),
     'operation': fields.String(required=True, description='Operação realizada (Ex: INSERT, UPDATE, LOGIN)'),
@@ -24,7 +22,7 @@ class LogList(Resource):
 
     @log_ns.doc("list_logs")
     @log_ns.marshal_list_with(log_model)
-    @roles_required(UserRole.TI, UserRole.ADM)  # Apenas TI e ADM acessam a auditoria global
+    @roles_required(UserRole.TI, UserRole.ADM)  
     def get(self):
         """[READ] Lista toda a trilha de auditoria do sistema"""
         return log_service.list_log()

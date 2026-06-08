@@ -4,11 +4,9 @@ from model.user import User
 from util.auth_role_enum_util import roles_required, UserRole
 from flask_login import current_user
 
-# 1. Definição do Namespace
 user_ns = Namespace("user", description="Operações CRUD de Usuários")
 user_service = UserService()
 
-# 2. MODELO COMPLETO (TI e ADM veem tudo, incluindo ID e Senha)
 user_model = user_ns.model('UserModel', {
     'id': fields.Integer(readonly=True, description='Identificador único'),
     'name': fields.String(required=True, description='Nome do usuário'),
@@ -17,7 +15,6 @@ user_model = user_ns.model('UserModel', {
     'role': fields.String(default="USER", description='Papel do usuário (USER, TI, ADM)')
 })
 
-# 3. MODELO PÚBLICO RESUMIDO (O que o USER comum tem permissão para ver)
 user_public_model = user_ns.model('UserPublicModel', {
     'name': fields.String(description='Nome do usuário'),
     'email': fields.String(description='E-mail do usuário'),
@@ -29,22 +26,17 @@ user_public_model = user_ns.model('UserPublicModel', {
 class UserList(Resource):
 
     @user_ns.doc("list_users")
-    # ATENÇÃO: Removemos o @user_ns.marshal_list_with fixo daqui de cima,
-    # porque a filtragem agora vai acontecer dinamicamente lá dentro!
     def get(self):
         """[READ] Lista usuários adaptando os campos visíveis conforme a permissão"""
         
-        # Garante que pelo menos o usuário esteja logado
         if not current_user.is_authenticated:
             user_ns.abort(401, "Não autenticado.")
 
         lista_bruta = user_service.list_users()
 
-        # CASO 1: Se for ADM ou TI, aplica o filtro do modelo COMPLETO
         if current_user.role.upper() != "USER":
             return marshal(lista_bruta, user_model), 200
         
-        # CASO 2: Se for um USER comum, aplica o filtro do modelo PÚBLICO (Esconde ID e Password)
         return marshal(lista_bruta, user_public_model), 200
 
     @user_ns.doc("create_user")

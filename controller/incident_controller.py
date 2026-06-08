@@ -4,11 +4,9 @@ from model.incident import Incident
 from util.auth_role_enum_util import roles_required, UserRole
 from flask_login import current_user
 
-# 1. Definição do Namespace para registro no app.py
 incident_ns = Namespace("incident", description="Operações CRUD de Incidentes/Chamados")
 incident_service = IncidentService()
 
-# 2. Modelo estruturado para o painel do Swagger
 incident_model = incident_ns.model('IncidentModel', {
     'id': fields.Integer(readonly=True, description='Identificador único no banco'),
     'number': fields.String(readonly=True, description='Número de protocolo único gerado pelo sistema (Ex: INC00001)'),
@@ -28,7 +26,7 @@ class IncidentList(Resource):
 
     @incident_ns.doc("list_incidents")
     @incident_ns.marshal_list_with(incident_model)
-    @roles_required(UserRole.USER, UserRole.TI, UserRole.ADM)  # Qualquer pessoa autenticada acompanha os chamados
+    @roles_required(UserRole.USER, UserRole.TI, UserRole.ADM)
     def get(self):
         """[READ] Lista todos os incidentes/chamados abertos e fechados"""
         return incident_service.list_incident()
@@ -36,12 +34,11 @@ class IncidentList(Resource):
     @incident_ns.doc("create_incident")
     @incident_ns.expect(incident_model, validate=True)
     @incident_ns.marshal_with(incident_model, code=201)
-    @roles_required(UserRole.USER, UserRole.TI, UserRole.ADM)  # Usuários comuns também abrem seus chamados
+    @roles_required(UserRole.USER, UserRole.TI, UserRole.ADM)
     def post(self):
         """[CREATE] Abre um novo incidente no suporte técnico"""
         dados = incident_ns.payload
         
-        # Criação explícita alinhada com as propriedades aceitas pelo seu IncidentService / SQLAlchemy Core
         novo_incident = Incident(
             title=dados['title'],
             state=dados.get('state', 'New'),
@@ -51,8 +48,6 @@ class IncidentList(Resource):
             device_id=dados.get('device_id')
         )
         
-        # Nota: Caso o seu create_incident necessite do ID do autor para os Logs de Auditoria,
-        # você pode passar o `current_user.id` no método se o seu service der suporte.
         return incident_service.create_incident(novo_incident), 201
 
 
@@ -73,7 +68,7 @@ class IncidentDetail(Resource):
     @incident_ns.doc("update_incident")
     @incident_ns.expect(incident_model, validate=True)
     @incident_ns.marshal_with(incident_model)
-    @roles_required(UserRole.TI, UserRole.ADM)  # Evita que o solicitante (USER) mude a prioridade ou feche o próprio chamado sem o técnico
+    @roles_required(UserRole.TI, UserRole.ADM) 
     def put(self, id):
         """[UPDATE] Atualiza o progresso, estado ou prioridade de um incidente"""
         dados = incident_ns.payload
@@ -89,18 +84,16 @@ class IncidentDetail(Resource):
         )
         
         try:
-            # Substituído o '1' fixo pelo ID dinâmico extraído da sessão ativa
             return incident_service.update_incident(incident_atualizado, current_user.id), 200
         except ValueError as e:
             incident_ns.abort(404, str(e))
 
     @incident_ns.doc("delete_incident")
     @incident_ns.response(204, 'Incidente excluído')
-    @roles_required(UserRole.ADM)  # Chamados técnicos são históricos de auditoria; exclusão permanente é restrita ao ADM
+    @roles_required(UserRole.ADM)  
     def delete(self, id):
         """[DELETE] Remove permanentemente um incidente (Apenas ADM)"""
         try:
-            # Substituído o '1' fixo pelo ID do Administrador para registrar na trilha de Logs de exclusão
             incident_service.delete_incident(id, current_user.id)
             return '', 204
         except ValueError as e:
